@@ -256,13 +256,14 @@ void MoveBackupSystemFiles(BOOL Restore)
 		if(Restore)
 		{
         Success = MoveFileExA(BackupFileBak, BackupFile, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
-		if(!Success)
+		// Suppression of the error message when there are no files to back up (newly copied files)
+		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to restore %s to %s", BackupFileBak, BackupFile);
 		}
 		else
 		{
 		Success = MoveFileExA(BackupFile, BackupFileBak, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
-		if(!Success)
+		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to backup %s to %s", BackupFile, BackupFileBak);
 		}
 		
@@ -290,13 +291,13 @@ void MoveBackupSystemFiles(BOOL Restore)
 		if(Restore)
 		{
         Success = MoveFileExA(BackupFileBak, BackupFile, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
-		if(!Success)
+		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to restore %s to %s", BackupFileBak, BackupFile);
 		}
 		else
 		{
 		Success = MoveFileExA(BackupFile, BackupFileBak, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
-		if(!Success)
+		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to backup %s to %s", BackupFile, BackupFileBak);
 		}
 		free(BackupFile);
@@ -323,13 +324,13 @@ void MoveBackupSystemFiles(BOOL Restore)
 		if(Restore)
 		{
         Success = MoveFileExA(BackupFileBak, BackupFile, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
-		if(!Success)
+		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to restore %s to %s", BackupFileBak, BackupFile);
 		}
 		else
 		{
 		Success = MoveFileExA(BackupFile, BackupFileBak, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
-		if(!Success)
+		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to backup %s to %s", BackupFile, BackupFileBak);
 		}
 
@@ -357,13 +358,13 @@ void MoveBackupSystemFiles(BOOL Restore)
 		if(Restore)
 		{
         Success = MoveFileExA(BackupFileBak, BackupFile, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
-		if(!Success)
+		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to restore %s to %s", BackupFileBak, BackupFile);
 		}
 		else
 		{
 		Success = MoveFileExA(BackupFile, BackupFileBak, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
-		if(!Success)
+		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to backup %s to %s", BackupFile, BackupFileBak);
 		}
 
