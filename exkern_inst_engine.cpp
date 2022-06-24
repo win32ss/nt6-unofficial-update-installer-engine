@@ -10,7 +10,8 @@ using namespace std;
 
  To work with the win32 API, I use char array based strings, but combined with the convenience of vector containers.
 */
-
+BOOL LocalBackupRestore = FALSE;
+BOOL DeleteNewFiles;
 vector<CHAR*> FileExistingNative;
 vector<CHAR*> FileNewNative;
 #ifndef _X86_
@@ -20,16 +21,22 @@ vector<CHAR*> FileNewWOW64;
 
 CHAR curdir [MAX_PATH];
 CHAR windirsys [MAX_PATH];
+CHAR windircurrent [MAX_PATH];
 #ifndef _X86_
 CHAR windirsyswow [MAX_PATH];
 #endif
 
 void SetupSystemDirs(CHAR* windir)
 {
-	if(windir == NULL)
+
     GetWindowsDirectoryA(windirsys, MAX_PATH);
-	else
+
+	if(windir != NULL)
+	{
+	if(windirsys[0] == windir[0])
+		LocalBackupRestore = TRUE;
 	strcpy_s(windirsys, MAX_PATH, windir);
+	}
 
 #ifndef _X86_
     strcpy_s(windirsyswow, MAX_PATH, windirsys);
@@ -66,7 +73,7 @@ void TakeoverSystemFiles()
 	strcpy_s(TakeownBase, MAX_PATH, windirsys);
 	strcpy_s(IcaclsBase, MAX_PATH, windirsys);
 	strcat_s(TakeownBase, MAX_PATH, "\\takeown.exe /F ");
-	strcat_s(IcaclsBase, MAX_PATH, "\\icacls.exe ");
+	strcat_s(IcaclsBase, MAX_PATH, "\\icacls.exe \"");
 
 	for (size_t i = 0; i < FileExistingNative.size(); i++)
 	{
@@ -84,9 +91,9 @@ void TakeoverSystemFiles()
 	strcat_s(IcaclsTemp, MAX_PATH, windirsys);
 	strcat_s(IcaclsTemp, MAX_PATH, "\\");
 	strcat_s(IcaclsTemp, MAX_PATH, FileExistingNative.at(i));
-	strcat_s(IcaclsTemp, MAX_PATH, " /grant ");
+	strcat_s(IcaclsTemp, MAX_PATH, "\" /grant \"");
 	strcat_s(IcaclsTemp, MAX_PATH, Username);
-	strcat_s(IcaclsTemp, MAX_PATH, ":F");
+	strcat_s(IcaclsTemp, MAX_PATH, "\":F");
 
 
 	if(!CreateProcessA(NULL, TakeownTemp, NULL, NULL, FALSE, CREATE_PRESERVE_CODE_AUTHZ_LEVEL | CREATE_NO_WINDOW, NULL, NULL,
@@ -151,9 +158,9 @@ void TakeoverSystemFiles()
 	strcat_s(IcaclsTemp, MAX_PATH, windirsyswow);
 	strcat_s(IcaclsTemp, MAX_PATH, "\\");
 	strcat_s(IcaclsTemp, MAX_PATH, FileExistingWOW64.at(i));
-	strcat_s(IcaclsTemp, MAX_PATH, " /grant ");
+	strcat_s(IcaclsTemp, MAX_PATH, "\" /grant \"");
 	strcat_s(IcaclsTemp, MAX_PATH, Username);
-	strcat_s(IcaclsTemp, MAX_PATH, ":F");
+	strcat_s(IcaclsTemp, MAX_PATH, "\":F");
 
 	if(!CreateProcessA(NULL, TakeownTemp, NULL, NULL, FALSE, CREATE_PRESERVE_CODE_AUTHZ_LEVEL | CREATE_NO_WINDOW, NULL, NULL,
 		&sua, &ProcInfo))
@@ -233,15 +240,16 @@ void MoveBackupSystemFiles(BOOL Restore)
 {
 	CHAR* BackupFile;
 	CHAR* BackupFileBak;
+	CHAR* InUseFileToBeRemoved;
 	BOOL Success;
-
-
 
 	for(size_t i = 0; i < FileExistingNative.size(); i++)
 	{
 		BackupFile = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
 
 		BackupFileBak = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
+
+		InUseFileToBeRemoved = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
 
 		strcpy_s(BackupFile, MAX_PATH, windirsys);
 
@@ -253,8 +261,32 @@ void MoveBackupSystemFiles(BOOL Restore)
 
 		strcat_s(BackupFileBak, MAX_PATH, ".bak");
 
+		strcpy_s(InUseFileToBeRemoved, MAX_PATH, windirsys);
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, "\\");
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, FileExistingNative.at(i));
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, ".del");
+
+
 		if(Restore)
 		{
+		     if(LocalBackupRestore)
+		     {
+                  Success = MoveFileA(BackupFile, InUseFileToBeRemoved);
+				  		if(!Success && GetLastError() != 2)
+						{
+		                   printf("\nERROR: Unable to move %s for safe removal", BackupFile);
+						}
+						else if(GetLastError() == 2)
+						{
+							printf("\nBackup for %s is missing, restoring", BackupFile);
+							MoveFileA(InUseFileToBeRemoved, BackupFile);
+						}
+						else
+			               MoveFileExA(InUseFileToBeRemoved, NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
+		     }
         Success = MoveFileExA(BackupFileBak, BackupFile, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
 		// Suppression of the error message when there are no files to back up (newly copied files)
 		if(!Success && GetLastError() != 2)
@@ -278,6 +310,8 @@ void MoveBackupSystemFiles(BOOL Restore)
 
 		BackupFileBak = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
 
+		InUseFileToBeRemoved = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
+
 		strcpy_s(BackupFile, MAX_PATH, windirsyswow);
 
 		strcat_s(BackupFile, MAX_PATH, "\\");
@@ -288,8 +322,31 @@ void MoveBackupSystemFiles(BOOL Restore)
 
 		strcat_s(BackupFileBak, MAX_PATH, ".bak");
 
+		strcpy_s(InUseFileToBeRemoved, MAX_PATH, windirsyswow);
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, "\\");
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, FileExistingWOW64.at(i));
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, ".del");
+
 		if(Restore)
 		{
+		     if(LocalBackupRestore)
+		     {
+                  Success = MoveFileA(BackupFile, InUseFileToBeRemoved);
+				  		if(!Success && GetLastError() != 2)
+						{
+		                   printf("\nERROR: Unable to move %s for safe removal", BackupFile);
+						}
+						else if(GetLastError() == 2)
+						{
+							printf("\nBackup for %s is missing, restoring", BackupFile);
+							MoveFileA(InUseFileToBeRemoved, BackupFile);
+						}
+						else
+			               MoveFileExA(InUseFileToBeRemoved, NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
+		     }
         Success = MoveFileExA(BackupFileBak, BackupFile, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
 		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to restore %s to %s", BackupFileBak, BackupFile);
@@ -311,6 +368,8 @@ void MoveBackupSystemFiles(BOOL Restore)
 
 		BackupFileBak = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
 
+		InUseFileToBeRemoved = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
+
 		strcpy_s(BackupFile, MAX_PATH, windirsys);
 
 		strcat_s(BackupFile, MAX_PATH, "\\");
@@ -321,8 +380,31 @@ void MoveBackupSystemFiles(BOOL Restore)
 
 		strcat_s(BackupFileBak, MAX_PATH, ".bak");
 
+		strcpy_s(InUseFileToBeRemoved, MAX_PATH, windirsys);
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, "\\");
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, FileNewNative.at(i));
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, ".del");
+
 		if(Restore)
 		{
+		     if(LocalBackupRestore)
+		     {
+                  Success = MoveFileA(BackupFile, InUseFileToBeRemoved);
+				  		if(!Success && GetLastError() != 2)
+						{
+		                   printf("\nERROR: Unable to move %s for safe removal", BackupFile);
+						}
+						else if(GetLastError() == 2 && !DeleteNewFiles)
+						{
+							printf("\nBackup for %s is missing, restoring", BackupFile);
+							MoveFileA(InUseFileToBeRemoved, BackupFile);
+						}
+						else
+			               MoveFileExA(InUseFileToBeRemoved, NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
+		     }
         Success = MoveFileExA(BackupFileBak, BackupFile, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
 		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to restore %s to %s", BackupFileBak, BackupFile);
@@ -345,6 +427,8 @@ void MoveBackupSystemFiles(BOOL Restore)
 
 		BackupFileBak = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
 
+		InUseFileToBeRemoved = (CHAR*) malloc(sizeof(CHAR)*MAX_PATH);
+
 		strcpy_s(BackupFile, MAX_PATH, windirsyswow);
 
 		strcat_s(BackupFile, MAX_PATH, "\\");
@@ -355,8 +439,31 @@ void MoveBackupSystemFiles(BOOL Restore)
 
 		strcat_s(BackupFileBak, MAX_PATH, ".bak");
 
+		strcpy_s(InUseFileToBeRemoved, MAX_PATH, windirsyswow);
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, "\\");
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, FileNewWOW64.at(i));
+
+		strcat_s(InUseFileToBeRemoved, MAX_PATH, ".del");
+
 		if(Restore)
 		{
+		     if(LocalBackupRestore)
+		     {
+                  Success = MoveFileA(BackupFile, InUseFileToBeRemoved);
+				  		if(!Success && GetLastError() != 2)
+						{
+		                   printf("\nERROR: Unable to move %s for safe removal", BackupFile);
+						}
+						else if(GetLastError() == 2 && !DeleteNewFiles)
+						{
+							printf("\nBackup for %s is missing, restoring", BackupFile);
+							MoveFileA(InUseFileToBeRemoved, BackupFile);
+						}
+						else
+			               MoveFileExA(InUseFileToBeRemoved, NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
+		     }
         Success = MoveFileExA(BackupFileBak, BackupFile, MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING);
 		if(!Success && GetLastError() != 2)
 			printf("\nERROR: Unable to restore %s to %s", BackupFileBak, BackupFile);
@@ -680,6 +787,8 @@ int _tmain(int argc, _TCHAR* argv[])
 			goto Restore;
 		return 0;
 	}
+
+	DeleteNewFiles = GetPrivateProfileIntA("Config", "DeleteNewFiles", 0, CurrentConfigPath);
 
 
 	printf("This is %s setup. \nPress 'R' for restore. \nPress all other keys for setup.\n", 
